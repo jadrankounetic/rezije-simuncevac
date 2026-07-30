@@ -27,8 +27,10 @@ var SECRET="Rezije_Unetic_BB6";
 var urlKey=new URLSearchParams(window.location.search).get("key");
 var AUTH=urlKey===SECRET;
 var e=React.createElement,us=React.useState,um=React.useMemo,ue=React.useEffect,uc=React.useCallback;
-function fbG(){if(!AUTH)return Promise.resolve(null);return fetch(FB+"/simuncevac.json?auth="+SECRET).then(function(r){return r.json()}).catch(function(){return null})}
-function fbS(d){if(!AUTH)return;return fetch(FB+"/simuncevac.json?auth="+SECRET,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}).catch(function(){})}
+var wLock=0;
+function norm(v){if(!v)return null;if(v.entries&&!Array.isArray(v.entries)){var a=[];for(var k in v.entries){if(v.entries[k])a.push(v.entries[k])}v.entries=a}if(!v.entries)v.entries=[];return v}
+function fbG(){if(!AUTH)return Promise.reject(new Error("no key"));return fetch(FB+"/simuncevac.json").then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}).then(norm)}
+function fbS(d){if(!AUTH)return Promise.reject(new Error("no key"));return fetch(FB+"/simuncevac.json",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}).then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json()})}
 
 var defP={c_m3_v:1.68,fix_v:0,c_kwh_s:0.142714,mjer:1.73,pdv_s:0.13,doi:0.982,smece:0,kom:0,amis:0,hrt:10.62,ost:0};
 var defE=[];
@@ -63,10 +65,10 @@ var ns=us({v:"",k:"",dd:"",mm:"",yy:""}),nr=ns[0],sN=ns[1];
 var ts=us(null),to=ts[0],sT=ts[1];
 var showT=uc(function(m){sT(m);setTimeout(function(){sT(null)},2000)},[]);
 
-ue(function(){fbG().then(function(v){if(v&&v.params){if(!v.entries)v.entries=[];setData(v);sC(true)}else{fbS(defD);setData(defD);sC(true)}sL(false)}).catch(function(){var b=null;try{b=JSON.parse(localStorage.getItem("rz-sim-bk"))}catch(x){}setData(b||defD);sL(false)})},[]);
-ue(function(){if(!data)return;var iv=setInterval(function(){fbG().then(function(v){if(v&&v.params){if(!v.entries)v.entries=[];setData(v);sC(true);try{localStorage.setItem("rz-sim-bk",JSON.stringify(v))}catch(x){}}}).catch(function(){sC(false)})},5000);return function(){clearInterval(iv)}},[!!data]);
+ue(function(){fbG().then(function(v){if(v&&v.error)throw new Error(v.error);if(v&&v.params){setData(v);sC(true)}else{fbS(defD);setData(defD);sC(true)}sL(false)}).catch(function(){var b=null;try{b=JSON.parse(localStorage.getItem("rz-sim-bk"))}catch(x){}setData(b||defD);sC(false);sL(false)})},[]);
+ue(function(){if(!data)return;var iv=setInterval(function(){if(Date.now()-wLock<8000)return;fbG().then(function(v){if(v&&v.params){setData(v);sC(true);try{localStorage.setItem("rz-sim-bk",JSON.stringify(v))}catch(x){}}}).catch(function(){sC(false)})},5000);return function(){clearInterval(iv)}},[!!data]);
 
-function sv(nd){setData(nd);fbS(nd);sC(true);try{localStorage.setItem("rz-sim-bk",JSON.stringify(nd))}catch(x){}}
+function sv(nd){wLock=Date.now();setData(nd);try{localStorage.setItem("rz-sim-bk",JSON.stringify(nd))}catch(x){}fbS(nd).then(function(){sC(true)}).catch(function(){sC(false);showT("Nije spremljeno u bazu!")})}
 
 var ent=data?(data.entries||[]):[];
 var par=data?(data.params||defP):defP;
