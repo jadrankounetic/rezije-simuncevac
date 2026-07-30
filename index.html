@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>Rezije Simuncevac</title>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Merriweather Sans',system-ui,sans-serif;background:#EFEAE2;color:#2C3E50}
+input:focus{border-color:#2980B9!important;outline:none}
+::-webkit-scrollbar{height:4px;width:4px}
+::-webkit-scrollbar-thumb{background:#DDD8CF;border-radius:4px}
+.sync-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script>
+(function(){
+"use strict";
+var FB="https://rezije-app-default-rtdb.europe-west1.firebasedatabase.app";
+var SECRET="Rezije_Unetic_BB6";
+var urlKey=new URLSearchParams(window.location.search).get("key");
+var AUTH=urlKey===SECRET;
+var e=React.createElement,us=React.useState,um=React.useMemo,ue=React.useEffect,uc=React.useCallback;
+function fbG(){if(!AUTH)return Promise.resolve(null);return fetch(FB+"/simuncevac.json?auth="+SECRET).then(function(r){return r.json()}).catch(function(){return null})}
+function fbS(d){if(!AUTH)return;return fetch(FB+"/simuncevac.json?auth="+SECRET,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}).catch(function(){})}
+
+var defP={c_m3_v:1.68,fix_v:0,c_kwh_s:0.142714,mjer:1.73,pdv_s:0.13,doi:0.982,smece:0,kom:0,amis:0,hrt:10.62,ost:0};
+var defE=[];
+var defD={entries:defE,params:defP};
+
+function calc(ent,p){var r=[];for(var i=1;i<ent.length;i++){var pv=ent[i-1],cu=ent[i];var cp=cu.p||p;
+var vm=cu.v-pv.v;var vt=vm*cp.c_m3_v+(cp.fix_v||0);
+var sk=(cu.k-pv.k)+cp.doi;var st=sk*cp.c_kwh_s*(1+cp.pdv_s);
+var fx=(cp.smece||0)+(cp.kom||0)+(cp.amis||0)+(cp.hrt||0)+(cp.ost||0);
+r.push({id:cu.id,date:cu.d,vm:vm,vt:vt,sk:sk,st:st,fx:fx,uk:vt+st+fx});}return r;}
+
+var C={bg:"#EFEAE2",cd:"#FFF",ac:"#C0392B",bl:"#2980B9",bll:"#D4EAFC",blb:"#85C1E9",vo:"#16A085",sr:"#2980B9",gr:"#27AE60",tx:"#2C3E50",mu:"#7F8C8D",bo:"#DDD8CF",hb:"#2C3E50",ha:"#E74C3C"};
+function fmt(n){return n==null||isNaN(n)?"\u2014":n.toLocaleString("hr-HR",{minimumFractionDigits:2,maximumFractionDigits:2})+" \u20AC"}
+function f2(n){return Math.round(n*100)/100}
+
+function SvgBar(p){var d=p.data,W=340,H=200;if(!d.length)return null;var mx=0;d.forEach(function(x){var t=x.voda+x.struja+x.fix;if(t>mx)mx=t});if(!mx)mx=1;var P={t:20,b:40,l:40,r:10},cw=W-P.l-P.r,ch=H-P.t-P.b,bw=Math.min(Math.floor(cw/d.length)*0.6,40),gap=(cw-bw*d.length)/(d.length+1);var gl=[];for(var i=0;i<=4;i++){var v=mx*i/4,y=P.t+ch-ch*(v/mx);gl.push(e('line',{key:"l"+i,x1:P.l,x2:W-P.r,y1:y,y2:y,stroke:C.bo,strokeWidth:.5,strokeDasharray:"3,3"}));gl.push(e('text',{key:"t"+i,x:P.l-4,y:y+3,textAnchor:"end",fontSize:8,fill:C.mu},Math.round(v)));}return e('svg',{viewBox:"0 0 "+W+" "+H,style:{width:"100%"}},gl,d.map(function(x,i){var bx=P.l+gap+(bw+gap)*i,hv=ch*(x.voda/mx),hs=ch*(x.struja/mx),hf=ch*(x.fix/mx),yf=P.t+ch-hf,ys=yf-hs,yv=ys-hv;return e('g',{key:i},e('rect',{x:bx,y:yv,width:bw,height:Math.max(hv,0),fill:C.vo}),e('rect',{x:bx,y:ys,width:bw,height:Math.max(hs,0),fill:C.sr}),e('rect',{x:bx,y:yf,width:bw,height:Math.max(hf,0),fill:C.gr}),e('text',{x:bx+bw/2,y:H-8,textAnchor:"middle",fontSize:7,fill:C.mu},x.label))}),e('g',{transform:"translate("+(P.l+10)+",12)"},e('rect',{x:0,y:0,width:8,height:8,fill:C.vo}),e('text',{x:12,y:8,fontSize:8,fill:C.mu},"Voda"),e('rect',{x:48,y:0,width:8,height:8,fill:C.sr}),e('text',{x:60,y:8,fontSize:8,fill:C.mu},"Struja"),e('rect',{x:104,y:0,width:8,height:8,fill:C.gr}),e('text',{x:116,y:8,fontSize:8,fill:C.mu},"Fiksni")));}
+function SvgLine(p){var d=p.data,W=340,H=160;if(d.length<2)return null;var vs=d.map(function(x){return x.value}),mn=Math.min.apply(null,vs)*.9,mx=Math.max.apply(null,vs)*1.05;if(mx<=mn)mx=mn+1;var P={t:16,b:36,l:40,r:10},cw=W-P.l-P.r,ch=H-P.t-P.b;var pts=d.map(function(x,i){return{x:P.l+cw*i/(d.length-1),y:P.t+ch-(ch*(x.value-mn)/(mx-mn)),l:x.label}});var pd="M"+pts.map(function(x){return x.x+","+x.y}).join("L"),ad=pd+"L"+pts[pts.length-1].x+","+(P.t+ch)+"L"+pts[0].x+","+(P.t+ch)+"Z";var gl=[];for(var i=0;i<=3;i++){var v=mn+(mx-mn)*i/3,y=P.t+ch-ch*((v-mn)/(mx-mn));gl.push(e('line',{key:i,x1:P.l,x2:W-P.r,y1:y,y2:y,stroke:C.bo,strokeWidth:.5,strokeDasharray:"3,3"}));gl.push(e('text',{key:"t"+i,x:P.l-4,y:y+3,textAnchor:"end",fontSize:8,fill:C.mu},Math.round(v)));}return e('svg',{viewBox:"0 0 "+W+" "+H,style:{width:"100%"}},gl,e('path',{d:ad,fill:C.ac,opacity:.12}),e('path',{d:pd,fill:"none",stroke:C.ac,strokeWidth:2}),pts.map(function(x,i){return e('g',{key:i},e('circle',{cx:x.x,cy:x.y,r:3,fill:C.ac}),e('text',{x:x.x,y:H-8,textAnchor:"middle",fontSize:7,fill:C.mu},x.l))}));}
+function PS(p){var s=us(false);return e('div',{style:{background:C.bll,borderRadius:12,border:"1.5px solid "+C.blb,marginBottom:12,overflow:"hidden"}},e('button',{onClick:function(){s[1](!s[0])},style:{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"12px 16px",background:"none",border:"none",cursor:"pointer",fontFamily:"'Merriweather Sans'",fontSize:13,fontWeight:700,color:C.bl,textAlign:"left"}},e('span',{style:{fontSize:16}},p.icon)," ",p.title,e('span',{style:{marginLeft:"auto",fontSize:11,opacity:.6}},s[0]?"\u25B2":"\u25BC")),s[0]?e('div',{style:{padding:"0 16px 14px"}},p.children):null);}
+function PF(p){return e('div',{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",gap:8}},e('label',{style:{fontSize:12,color:C.tx,fontWeight:500,flex:1}},p.label),e('div',{style:{display:"flex",alignItems:"center",gap:4}},e('input',{type:"number",step:"any",value:p.value,onChange:function(ev){p.onChange(parseFloat(ev.target.value)||0)},style:{width:90,padding:"6px 8px",borderRadius:6,border:"1.5px solid "+C.blb,background:"#fff",fontSize:13,fontWeight:600,color:C.bl,fontFamily:"'Merriweather Sans'",textAlign:"right",outline:"none"}}),p.unit?e('span',{style:{fontSize:11,color:C.mu,width:30}},p.unit):null));}
+
+function App(){
+if(!AUTH)return e('div',{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",gap:16,padding:20,textAlign:"center"}},
+e('div',{style:{fontSize:48}},"\uD83D\uDD12"),
+e('div',{style:{fontSize:20,fontWeight:800,fontFamily:"'Playfair Display',serif",color:C.tx}},"Pristup odbijen"),
+e('div',{style:{fontSize:14,color:C.mu,lineHeight:1.6,maxWidth:300}},"Nedostaje ili je neispravan pristupni klju\u010D u URL-u."));
+
+var ds=us(null),data=ds[0],setData=ds[1];
+var ls=us(true),ld=ls[0],sL=ls[1];
+var cs=us(false),cn=cs[0],sC=cs[1];
+var vs=us("tablica"),vw=vs[0],sV=vs[1];
+var ns=us({v:"",k:"",dd:"",mm:"",yy:""}),nr=ns[0],sN=ns[1];
+var ts=us(null),to=ts[0],sT=ts[1];
+var showT=uc(function(m){sT(m);setTimeout(function(){sT(null)},2000)},[]);
+
+ue(function(){fbG().then(function(v){if(v&&v.params){if(!v.entries)v.entries=[];setData(v);sC(true)}else{fbS(defD);setData(defD);sC(true)}sL(false)}).catch(function(){var b=null;try{b=JSON.parse(localStorage.getItem("rz-sim-bk"))}catch(x){}setData(b||defD);sL(false)})},[]);
+ue(function(){if(!data)return;var iv=setInterval(function(){fbG().then(function(v){if(v&&v.params){if(!v.entries)v.entries=[];setData(v);sC(true);try{localStorage.setItem("rz-sim-bk",JSON.stringify(v))}catch(x){}}}).catch(function(){sC(false)})},5000);return function(){clearInterval(iv)}},[!!data]);
+
+function sv(nd){setData(nd);fbS(nd);sC(true);try{localStorage.setItem("rz-sim-bk",JSON.stringify(nd))}catch(x){}}
+
+var ent=data?(data.entries||[]):[];
+var par=data?(data.params||defP):defP;
+var res=um(function(){return calc(ent,par)},[ent,par]);
+var st=um(function(){if(!res.length)return{};var t=0,v=0,s=0;for(var i=0;i<res.length;i++){t+=res[i].uk;v+=res[i].vt;s+=res[i].st}return{total:t,avg:t/res.length,voda:v,struja:s}},[res]);
+
+if(ld||!data)return e('div',{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",gap:12}},e('div',{style:{width:28,height:28,border:"3px solid #DDD8CF",borderTopColor:"#C0392B",borderRadius:"50%",animation:"sp .7s linear infinite"}}),e('div',{style:{fontSize:13,color:"#7F8C8D"}},"Spajanje..."));
+
+var setE=function(fn){sv({entries:fn(data.entries||[]),params:data.params})};
+var setPr=function(k,v){var np={};for(var y in data.params)np[y]=data.params[y];np[k]=v;sv({entries:data.entries,params:np})};
+
+function addR(){var dd=nr.dd&&nr.mm&&nr.yy?nr.dd+"."+nr.mm+"."+nr.yy+".":"";if(!dd||!nr.k||!nr.v){showT("Popunite sva polja!");return}var snap={};for(var pk in par)snap[pk]=par[pk];setE(function(a){return a.concat({id:Date.now(),d:dd,v:parseFloat(nr.v),k:parseFloat(nr.k),p:snap})});sN({v:"",k:"",dd:"",mm:"",yy:""});showT("Dodano \u2713")}
+function delR(id){if(window.confirm("Stvarno zelite obrisat unos?")){setE(function(a){return a.filter(function(x){return x.id!==id})});showT("Obrisano")}}
+function rst(){var pw=window.prompt("Unesite lozinku:");if(pw==="1234"){sv(defD);showT("Resetirano")}else if(pw!==null){showT("Pogresna lozinka!")}}
+
+var bD=res.map(function(r){return{label:r.date,voda:f2(r.vt),struja:f2(r.st),fix:f2(r.fx)}});
+var lD=res.map(function(r){return{label:r.date,value:f2(r.uk)}});
+var nv=[{id:"tablica",l:"Tablica",i:"\u25A6"},{id:"unos",l:"Unos",i:"\u271A"},{id:"grafovi",l:"Grafovi",i:"\u25C9"},{id:"cijene",l:"Cijene",i:"\u2699"}];
+var ib={padding:"10px 12px",borderRadius:8,border:"1.5px solid "+C.bo,fontSize:14,fontFamily:"'Merriweather Sans'",outline:"none",background:"#fff",width:"100%",boxSizing:"border-box"};
+function SC(l,v,c){return e('div',{style:{flex:"1 1 110px",background:C.cd,borderRadius:10,padding:"12px 10px",borderLeft:"3px solid "+c,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}},e('div',{style:{fontSize:9,fontWeight:700,color:C.mu,textTransform:"uppercase",letterSpacing:.8}},l),e('div',{style:{fontSize:16,fontWeight:800,color:C.tx,marginTop:4,fontFamily:"'Playfair Display',serif"}},fmt(v)))}
+
+return e('div',{style:{fontFamily:"'Merriweather Sans',sans-serif",background:C.bg,minHeight:"100vh",color:C.tx,maxWidth:600,margin:"0 auto",paddingBottom:80}},
+to?e('div',{style:{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",background:C.tx,color:"#fff",padding:"10px 24px",borderRadius:10,fontSize:13,fontWeight:700,zIndex:100,boxShadow:"0 8px 24px rgba(0,0,0,.2)"}},to):null,
+e('div',{style:{background:C.hb,padding:"20px 18px 16px",color:"#fff"}},
+e('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},e('div',{style:{fontSize:10,fontWeight:700,letterSpacing:2.5,textTransform:"uppercase",opacity:.4}},"Rezije"),e('div',{style:{fontSize:10,display:"flex",alignItems:"center",opacity:.7}},e('span',{className:"sync-dot",style:{background:cn?"#2ECC71":"#E74C3C"}}),cn?"Povezano":"Offline")),
+e('div',{style:{display:"flex",alignItems:"baseline",gap:10,marginTop:4}},e('div',{style:{fontSize:24,fontWeight:800,fontFamily:"'Playfair Display',Georgia,serif"}},"\u0160imun\u010Devac"),st.total>0?e('div',{style:{fontSize:14,color:C.ha,fontWeight:700}},fmt(st.total)):null)),
+e('div',{style:{padding:"14px 14px 0"}},
+vw==="tablica"?e('div',null,e('div',{style:{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}},SC("Prosjek/mj",st.avg,C.ac),SC("Voda",st.voda,C.vo),SC("Struja",st.struja,C.sr)),e('div',{style:{overflowX:"auto",borderRadius:10,border:"1px solid "+C.bo,background:C.cd}},e('table',{style:{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:500}},e('thead',null,e('tr',{style:{background:"#F5F1EB"}},["Datum","Voda m3","Voda EUR","Struja kWh","Struja EUR","Fiksni","UKUPNO",""].map(function(h,i){return e('th',{key:i,style:{padding:"8px 5px",textAlign:i===0?"left":"right",fontWeight:700,color:C.mu,fontSize:9,textTransform:"uppercase",borderBottom:"1px solid "+C.bo,whiteSpace:"nowrap"}},h)}))),e('tbody',null,res.map(function(r,i){return e('tr',{key:r.id,style:{borderBottom:"1px solid "+C.bo,background:i%2===0?"#fff":"#FDFBF8"}},e('td',{style:{padding:"8px 5px",fontWeight:600,whiteSpace:"nowrap"}},r.date),e('td',{style:{padding:"8px 5px",textAlign:"right",color:C.vo}},f2(r.vm)),e('td',{style:{padding:"8px 5px",textAlign:"right",color:C.vo,fontWeight:700}},f2(r.vt)),e('td',{style:{padding:"8px 5px",textAlign:"right",color:C.sr}},Math.round(r.sk)),e('td',{style:{padding:"8px 5px",textAlign:"right",color:C.sr,fontWeight:700}},f2(r.st)),e('td',{style:{padding:"8px 5px",textAlign:"right",color:C.gr}},f2(r.fx)),e('td',{style:{padding:"8px 5px",textAlign:"right",fontWeight:800}},f2(r.uk)),e('td',{style:{padding:4,textAlign:"center"}},e('button',{onClick:function(){delR(r.id)},style:{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14}},"\u00D7")))})))),!res.length?e('div',{style:{textAlign:"center",padding:30,color:C.mu}},"Dodajte barem 2 ocitanja"):null):null,
+vw==="unos"?e('div',null,e('div',{style:{fontSize:20,fontWeight:800,fontFamily:"'Playfair Display',serif",marginBottom:16}},"Novo ocitanje"),e('div',{style:{background:C.cd,borderRadius:12,padding:20,boxShadow:"0 1px 4px rgba(0,0,0,.06)",marginBottom:16}},
+e('label',{style:{fontSize:11,fontWeight:700,color:C.mu,textTransform:"uppercase",letterSpacing:.8,display:"block",marginBottom:6}},"Datum (dd.mm.yyyy.)"),
+e('div',{style:{display:"flex",gap:6,alignItems:"center",marginBottom:16}},
+e('select',{value:nr.dd||"",onChange:function(x){sN({v:nr.v,k:nr.k,dd:x.target.value,mm:nr.mm,yy:nr.yy})},style:Object.assign({},ib,{width:"auto",flex:1,textAlign:"center"})},e('option',{value:""},"Dan"),function(){var o=[];for(var i=1;i<=31;i++)o.push(e('option',{key:i,value:String(i<10?"0"+i:i)},i<10?"0"+i:i));return o}()),
+e('span',{style:{fontSize:16,color:C.mu}},"."),
+e('select',{value:nr.mm||"",onChange:function(x){sN({v:nr.v,k:nr.k,dd:nr.dd,mm:x.target.value,yy:nr.yy})},style:Object.assign({},ib,{width:"auto",flex:1,textAlign:"center"})},e('option',{value:""},"Mj."),function(){var o=[];for(var i=1;i<=12;i++)o.push(e('option',{key:i,value:String(i<10?"0"+i:i)},i<10?"0"+i:i));return o}()),
+e('span',{style:{fontSize:16,color:C.mu}},"."),
+e('select',{value:nr.yy||"",onChange:function(x){sN({v:nr.v,k:nr.k,dd:nr.dd,mm:nr.mm,yy:x.target.value})},style:Object.assign({},ib,{width:"auto",flex:1.2,textAlign:"center"})},e('option',{value:""},"God."),function(){var o=[];var cy=new Date().getFullYear();for(var i=cy;i<=cy+5;i++)o.push(e('option',{key:i,value:String(i)},i));return o}()),
+e('span',{style:{fontSize:16,color:C.mu}},".")),
+e('label',{style:{fontSize:11,fontWeight:700,color:C.vo,textTransform:"uppercase",letterSpacing:.8,display:"block",marginBottom:6}},"Stanje vode (m3)"),
+e('input',{type:"number",placeholder:"npr. 1250",value:nr.v,onChange:function(x){sN({v:x.target.value,k:nr.k,dd:nr.dd,mm:nr.mm,yy:nr.yy})},style:Object.assign({},ib,{marginBottom:16,fontSize:20,fontWeight:700,textAlign:"center"})}),
+e('label',{style:{fontSize:11,fontWeight:700,color:C.sr,textTransform:"uppercase",letterSpacing:.8,display:"block",marginBottom:6}},"Stanje struje (kWh)"),
+e('input',{type:"number",placeholder:"npr. 12000",value:nr.k,onChange:function(x){sN({v:nr.v,k:x.target.value,dd:nr.dd,mm:nr.mm,yy:nr.yy})},style:Object.assign({},ib,{marginBottom:20,fontSize:20,fontWeight:700,textAlign:"center"})}),
+e('button',{onClick:addR,style:{width:"100%",background:C.ac,color:"#fff",border:"none",borderRadius:10,padding:14,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"'Merriweather Sans'"}},"Dodaj ocitanje")),
+e('div',{style:{fontSize:14,fontWeight:700,marginBottom:10}},"Sva ocitanja ("+ent.length+")"),
+ent.map(function(en,i){return e('div',{key:en.id,style:{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:i===0?"#FFF9E6":C.cd,borderRadius:10,marginBottom:6,border:"1px solid "+(i===0?"#F0E68C":C.bo)}},e('div',{style:{flex:1}},e('div',{style:{fontWeight:700,fontSize:13}},en.d,i===0?" (pocetno)":""),e('div',{style:{fontSize:11,color:C.mu,marginTop:2}},e('span',{style:{color:C.vo}},"voda m3: "+en.v)," | ",e('span',{style:{color:C.sr}},"kWh: "+en.k))),i>0?e('button',{onClick:function(){delR(en.id)},style:{background:"none",border:"1px solid #fcc",color:"#e74c3c",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}},"Obrisi"):null)})):null,
+vw==="grafovi"?e('div',null,e('div',{style:{fontSize:20,fontWeight:800,fontFamily:"'Playfair Display',serif",marginBottom:16}},"Grafovi"),bD.length?e('div',null,e('div',{style:{background:C.cd,borderRadius:12,padding:16,border:"1px solid "+C.bo,marginBottom:16}},e('div',{style:{fontSize:12,fontWeight:700,marginBottom:10}},"Struktura troskova"),e(SvgBar,{data:bD})),e('div',{style:{background:C.cd,borderRadius:12,padding:16,border:"1px solid "+C.bo}},e('div',{style:{fontSize:12,fontWeight:700,marginBottom:10}},"Trend ukupno"),e(SvgLine,{data:lD}))):e('div',{style:{textAlign:"center",padding:40,color:C.mu}},"Nema podataka")):null,
+vw==="cijene"?e('div',null,e('div',{style:{fontSize:20,fontWeight:800,fontFamily:"'Playfair Display',serif",marginBottom:4}},"Cijene i parametri"),
+e('div',{style:{fontSize:12,color:C.bl,fontWeight:600,marginBottom:16,display:"flex",alignItems:"center",gap:6}},e('span',{style:{display:"inline-block",width:14,height:14,borderRadius:4,background:C.bll,border:"1.5px solid "+C.blb}}),"Plava polja - mijenjaju se pri promjeni cijena"),
+e(PS,{title:"Parametri vode",icon:"\uD83D\uDCA7"},
+e(PF,{label:"Cijena po m3",value:par.c_m3_v,onChange:function(v){setPr("c_m3_v",v)},unit:"\u20AC"}),
+e(PF,{label:"Fiksna naknada mj.",value:par.fix_v,onChange:function(v){setPr("fix_v",v)},unit:"\u20AC"})),
+e(PS,{title:"Parametri struje",icon:"\u26A1"},
+e(PF,{label:"Cijena kWh",value:par.c_kwh_s,onChange:function(v){setPr("c_kwh_s",v)},unit:"\u20AC"}),
+e(PF,{label:"Mjerenje mj.",value:par.mjer,onChange:function(v){setPr("mjer",v)},unit:"\u20AC"}),
+e(PF,{label:"PDV struja",value:par.pdv_s,onChange:function(v){setPr("pdv_s",v)}}),
+e(PF,{label:"Dodatak OI",value:par.doi,onChange:function(v){setPr("doi",v)},unit:"kWh"})),
+e(PS,{title:"Fiksni mjesecni izdaci",icon:"\uD83C\uDFE0"},
+e(PF,{label:"Smece",value:par.smece,onChange:function(v){setPr("smece",v)},unit:"\u20AC"}),
+e(PF,{label:"Komunalije",value:par.kom,onChange:function(v){setPr("kom",v)},unit:"\u20AC"}),
+e(PF,{label:"AMIS",value:par.amis,onChange:function(v){setPr("amis",v)},unit:"\u20AC"}),
+e(PF,{label:"HRT",value:par.hrt,onChange:function(v){setPr("hrt",v)},unit:"\u20AC"}),
+e(PF,{label:"Ostalo",value:par.ost,onChange:function(v){setPr("ost",v)},unit:"\u20AC"}),
+e('div',{style:{borderTop:"1px solid "+C.blb,marginTop:8,paddingTop:8,display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:14}},e('span',null,"Ukupno fiksni/mj"),e('span',{style:{color:C.bl}},fmt((par.smece||0)+(par.kom||0)+(par.amis||0)+(par.hrt||0)+(par.ost||0))))),
+e('div',{style:{background:C.cd,borderRadius:10,padding:16,border:"1px solid "+C.bo,marginBottom:12}},
+e('div',{style:{fontSize:12,fontWeight:700,color:C.mu,marginBottom:6}},"Formula:"),
+e('div',{style:{fontSize:11,color:C.tx,lineHeight:1.7}},
+e('b',{style:{color:C.vo}},"Voda")," = m3 \u00D7 cijena + fiksna naknada",e('br'),
+e('b',{style:{color:C.sr}},"Struja")," = (kWh + OI) \u00D7 cijena \u00D7 (1+PDV)",e('br'),
+e('b',null,"Ukupno")," = Voda + Struja + fiksni")),
+e('button',{onClick:rst,style:{width:"100%",background:"none",border:"1.5px solid #e74c3c",color:"#e74c3c",borderRadius:10,padding:12,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"'Merriweather Sans'"}},"Vrati na pocetne podatke")):null),
+e('div',{style:{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:600,background:C.cd,borderTop:"1px solid "+C.bo,display:"flex",padding:"6px 0 10px",zIndex:50,boxShadow:"0 -4px 16px rgba(0,0,0,.06)"}},nv.map(function(n){return e('button',{key:n.id,onClick:function(){if(n.id==="unos"&&vw!=="unos"){var now=new Date();var td=String(now.getDate());td=td.length<2?"0"+td:td;var tm=String(now.getMonth()+1);tm=tm.length<2?"0"+tm:tm;var ty=String(now.getFullYear());sN({v:nr.v,k:nr.k,dd:td,mm:tm,yy:ty})}sV(n.id)},style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"5px 0",background:"none",border:"none",cursor:"pointer",color:vw===n.id?C.ac:C.mu,fontFamily:"'Merriweather Sans'"}},e('span',{style:{fontSize:18}},n.i),e('span',{style:{fontSize:10,fontWeight:vw===n.id?800:500}},n.l))})));}
+
+ReactDOM.createRoot(document.getElementById('root')).render(e(App));
+})();
+</script>
+</body>
+</html>
