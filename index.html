@@ -32,18 +32,26 @@ function norm(v){if(!v)return null;if(v.entries&&!Array.isArray(v.entries)){var 
 function fbG(){if(!AUTH)return Promise.reject(new Error("no key"));return fetch(FB+"/simuncevac.json").then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}).then(norm)}
 function fbS(d){if(!AUTH)return Promise.reject(new Error("no key"));return fetch(FB+"/simuncevac.json",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}).then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json()})}
 
-var defP={c_m3_v:1.68,fix_v:0,c_energija:0.1032,c_mreza:0.052324,c_oie:0.013239,mjer:1.983,pdv_s:0.13,smece:0,kom:0,amis:0,hrt:10.62,ost:0};
+var defP={c_m3_v:1.68,fix_v:0,c_opsk:0.091324,c_dist:0.037608,c_prij:0.014716,c_oie:0.013239,c_sol:0.003982,c_solp:0.003982,n_omm:1.983,n_opsk:0.982,pdv_s:0.13,smece:0,kom:0,amis:0,hrt:10.62,ost:0};
 function mergeP(p){var o={};for(var k in defP)o[k]=defP[k];if(p){for(var k2 in p){if(p[k2]!==undefined&&p[k2]!==null)o[k2]=p[k2]}}return o}
+function pd(s){if(!s)return null;var t=String(s).replace(/\.$/,"").split(".");if(t.length<3)return null;var d=parseInt(t[0],10),m=parseInt(t[1],10),y=parseInt(t[2],10);if(isNaN(d)||isNaN(m)||isNaN(y))return null;if(y<100)y+=2000;var dt=new Date(y,m-1,d);return isNaN(dt.getTime())?null:dt}
+function mjeseci(d1,d2){var a=pd(d1),b=pd(d2);if(!a||!b)return 1;var dn=Math.round((b-a)/86400000);if(dn<=0)return 1;return Math.round(dn/30*100)/100}
 var defE=[];
 var defD={entries:defE,params:defP};
 
 function calc(ent,p){var r=[];for(var i=1;i<ent.length;i++){var pv=ent[i-1],cu=ent[i];var cp=cu.p||p;
 var vm=cu.v-pv.v;var vt=vm*(cp.c_m3_v||0)+(cp.fix_v||0);
-var kw=cu.k-pv.k;var sk,st;
-if(cp.c_energija===undefined||cp.c_energija===null){sk=kw+(cp.doi||0);st=sk*(cp.c_kwh_s||0)*(1+(cp.pdv_s||0));}
-else{sk=kw;st=(kw*((cp.c_energija||0)+(cp.c_mreza||0)+(cp.c_oie||0))+(cp.mjer||0))*(1+(cp.pdv_s||0));}
+var kwr=cu.k-pv.k;var sk,st,mj=1;
+if(cp.c_opsk!==undefined&&cp.c_opsk!==null){
+var kw=Math.round(kwr);mj=mjeseci(pv.d,cu.d);
+var en=kw*((cp.c_opsk||0)+(cp.c_dist||0)+(cp.c_prij||0))+mj*((cp.n_omm||0)+(cp.n_opsk||0));
+var os=en+kw*((cp.c_oie||0)+(cp.c_sol||0)-(cp.c_solp||0));
+sk=kwr;st=os*(1+(cp.pdv_s||0));}
+else if(cp.c_energija!==undefined&&cp.c_energija!==null){
+sk=kwr;st=(kwr*((cp.c_energija||0)+(cp.c_mreza||0)+(cp.c_oie||0))+(cp.mjer||0))*(1+(cp.pdv_s||0));}
+else{sk=kwr+(cp.doi||0);st=sk*(cp.c_kwh_s||0)*(1+(cp.pdv_s||0));}
 var fx=(cp.smece||0)+(cp.kom||0)+(cp.amis||0)+(cp.hrt||0)+(cp.ost||0);
-r.push({id:cu.id,date:cu.d,sv:cu.v,sk2:cu.k,vm:vm,vt:vt,sk:sk,st:st,fx:fx,uk:vt+st+fx});}return r;}
+r.push({id:cu.id,date:cu.d,sv:cu.v,sk2:cu.k,mj:mj,vm:vm,vt:vt,sk:sk,st:st,fx:fx,uk:vt+st+fx});}return r;}
 
 var C={bg:"#F4F6FB",cd:"#FFF",ac:"#E03131",bl:"#1B5BD6",bll:"#E7EFFF",blb:"#9DBCF5",vo:"#1B5BD6",sr:"#D97706",srb:"#F5C518",gr:"#E03131",tx:"#14213D",mu:"#5A6B8C",bo:"#C9D2E4",hb:"#10265F",ha:"#F5C518"};
 function fmt(n){return n==null||isNaN(n)?"\u2014":n.toLocaleString("hr-HR",{minimumFractionDigits:2,maximumFractionDigits:2})+" \u20AC"}
@@ -123,14 +131,22 @@ e('div',{style:{fontSize:12,color:C.bl,fontWeight:600,marginBottom:16,display:"f
 e(PS,{title:"Parametri vode",icon:"\uD83D\uDCA7"},
 e(PF,{label:"Cijena po m3",value:par.c_m3_v,onChange:function(v){setPr("c_m3_v",v)},unit:"\u20AC"}),
 e(PF,{label:"Fiksna naknada mj.",value:par.fix_v,onChange:function(v){setPr("fix_v",v)},unit:"\u20AC"})),
-e(PS,{title:"Parametri struje (HEP)",icon:"\u26A1"},
-e(PF,{label:"Energija / kWh",value:par.c_energija,onChange:function(v){setPr("c_energija",v)},unit:"\u20AC"}),
-e(PF,{label:"Mrezarina / kWh",value:par.c_mreza,onChange:function(v){setPr("c_mreza",v)},unit:"\u20AC"}),
-e(PF,{label:"OIE naknada / kWh",value:par.c_oie,onChange:function(v){setPr("c_oie",v)},unit:"\u20AC"}),
-e(PF,{label:"Mjerno mjesto / mj",value:par.mjer,onChange:function(v){setPr("mjer",v)},unit:"\u20AC"}),
+e(PS,{title:"Parametri struje (HEP Plavi)",icon:"\u26A1"},
+e('div',{style:{fontSize:10,fontWeight:700,color:C.mu,textTransform:"uppercase",letterSpacing:.8,paddingTop:4,paddingBottom:2}},"Po kWh"),
+e(PF,{label:"RJT Opskrba",value:par.c_opsk,onChange:function(v){setPr("c_opsk",v)},unit:"\u20AC"}),
+e(PF,{label:"RJT Distribucija",value:par.c_dist,onChange:function(v){setPr("c_dist",v)},unit:"\u20AC"}),
+e(PF,{label:"RJT Prijenos",value:par.c_prij,onChange:function(v){setPr("c_prij",v)},unit:"\u20AC"}),
+e(PF,{label:"Naknada za OiE",value:par.c_oie,onChange:function(v){setPr("c_oie",v)},unit:"\u20AC"}),
+e(PF,{label:"Solidarna naknada",value:par.c_sol,onChange:function(v){setPr("c_sol",v)},unit:"\u20AC"}),
+e(PF,{label:"Popust solidarna",value:par.c_solp,onChange:function(v){setPr("c_solp",v)},unit:"\u20AC"}),
+e('div',{style:{fontSize:10,fontWeight:700,color:C.mu,textTransform:"uppercase",letterSpacing:.8,paddingTop:10,paddingBottom:2,borderTop:"1px dashed "+C.blb,marginTop:6}},"Mjesecno"),
+e(PF,{label:"Naknada za OMM",value:par.n_omm,onChange:function(v){setPr("n_omm",v)},unit:"\u20AC"}),
+e(PF,{label:"Naknada za opskrbu",value:par.n_opsk,onChange:function(v){setPr("n_opsk",v)},unit:"\u20AC"}),
 e(PF,{label:"PDV struja",value:par.pdv_s,onChange:function(v){setPr("pdv_s",v)}}),
-e('div',{style:{borderTop:"1px solid "+C.blb,marginTop:8,paddingTop:8,display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:13}},e('span',null,"Ukupno / kWh s PDV-om"),e('span',{style:{color:C.bl}},(((par.c_energija||0)+(par.c_mreza||0)+(par.c_oie||0))*(1+(par.pdv_s||0))).toFixed(4)+" \u20AC")),
-e('div',{style:{fontSize:10,color:C.mu,paddingTop:6,lineHeight:1.5}},"Mrezarina, OIE i mjerno mjesto su sluzbene HEP vrijednosti od 01.01.2026. (tarifni model Plavi). Cijenu energije provjerite na svom racunu.")),
+e('div',{style:{borderTop:"1px solid "+C.blb,marginTop:8,paddingTop:8}},
+e('div',{style:{display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:12,marginBottom:3}},e('span',null,"Varijabilno / kWh s PDV"),e('span',{style:{color:C.bl}},(((par.c_opsk||0)+(par.c_dist||0)+(par.c_prij||0)+(par.c_oie||0)+(par.c_sol||0)-(par.c_solp||0))*(1+(par.pdv_s||0))).toFixed(4)+" \u20AC")),
+e('div',{style:{display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:12}},e('span',null,"Fiksno / mj s PDV"),e('span',{style:{color:C.bl}},fmt(((par.n_omm||0)+(par.n_opsk||0))*(1+(par.pdv_s||0)))))),
+e('div',{style:{fontSize:10,color:C.mu,paddingTop:6,lineHeight:1.5}},"Vrijednosti s HEP racuna, tarifni model Kucanstvo Plavi. Mjesecne naknade se razmjerno dijele prema broju dana izmedu ocitanja (dani/30), kao na racunu.")),
 e(PS,{title:"Fiksni mjesecni izdaci",icon:"\uD83C\uDFE0"},
 e(PF,{label:"Smece",value:par.smece,onChange:function(v){setPr("smece",v)},unit:"\u20AC"}),
 e(PF,{label:"Komunalije",value:par.kom,onChange:function(v){setPr("kom",v)},unit:"\u20AC"}),
@@ -142,7 +158,7 @@ e('div',{style:{background:C.cd,borderRadius:10,padding:16,border:"1px solid "+C
 e('div',{style:{fontSize:12,fontWeight:700,color:C.mu,marginBottom:6}},"Formula:"),
 e('div',{style:{fontSize:11,color:C.tx,lineHeight:1.7}},
 e('b',{style:{color:C.vo}},"Voda")," = m3 \u00D7 cijena + fiksna naknada",e('br'),
-e('b',{style:{color:C.sr}},"Struja")," = [kWh \u00D7 (energija + mrezarina + OIE) + mjerno mjesto] \u00D7 (1+PDV)",e('br'),
+e('b',{style:{color:C.sr}},"Struja")," = [kWh \u00D7 (opskrba + distribucija + prijenos + OiE + solidarna \u2212 popust) + mj \u00D7 (OMM + naknada za opskrbu)] \u00D7 (1+PDV)",e('br'),
 e('b',null,"Ukupno")," = Voda + Struja + fiksni")),
 e('button',{onClick:rst,style:{width:"100%",background:"none",border:"1.5px solid #e74c3c",color:"#e74c3c",borderRadius:10,padding:12,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"'Inter'"}},"Vrati na pocetne podatke")):null),
 e('div',{style:{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:600,background:C.cd,borderTop:"1.5px solid "+C.bo,display:"flex",padding:"0 0 10px",zIndex:50,boxShadow:"0 -4px 16px rgba(20,33,61,.08)"}},nv.map(function(n){return e('button',{key:n.id,onClick:function(){if(n.id==="unos"&&vw!=="unos"){var now=new Date();var td=String(now.getDate());td=td.length<2?"0"+td:td;var tm=String(now.getMonth()+1);tm=tm.length<2?"0"+tm:tm;var ty=String(now.getFullYear());sN({v:nr.v,k:nr.k,dd:td,mm:tm,yy:ty})}sV(n.id)},style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"0 0 5px",background:"none",border:"none",borderTop:vw===n.id?"3px solid "+C.ha:"3px solid transparent",cursor:"pointer",color:vw===n.id?C.bl:C.mu,fontFamily:"'Inter'"}},e('span',{style:{fontSize:18,marginTop:5}},n.i),e('span',{style:{fontSize:10,fontWeight:vw===n.id?800:500}},n.l))})));}
