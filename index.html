@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Rezije Simuncevec</title>
+<title>Rezije Simuncevac</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Archivo:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -32,15 +32,18 @@ function norm(v){if(!v)return null;if(v.entries&&!Array.isArray(v.entries)){var 
 function fbG(){if(!AUTH)return Promise.reject(new Error("no key"));return fetch(FB+"/simuncevac.json").then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}).then(norm)}
 function fbS(d){if(!AUTH)return Promise.reject(new Error("no key"));return fetch(FB+"/simuncevac.json",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}).then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json()})}
 
-var defP={c_m3_v:1.68,fix_v:0,c_kwh_s:0.142714,mjer:1.73,pdv_s:0.13,doi:0.982,smece:0,kom:0,amis:0,hrt:10.62,ost:0};
+var defP={c_m3_v:1.68,fix_v:0,c_energija:0.1032,c_mreza:0.052324,c_oie:0.013239,mjer:1.983,pdv_s:0.13,smece:0,kom:0,amis:0,hrt:10.62,ost:0};
+function mergeP(p){var o={};for(var k in defP)o[k]=defP[k];if(p){for(var k2 in p){if(p[k2]!==undefined&&p[k2]!==null)o[k2]=p[k2]}}return o}
 var defE=[];
 var defD={entries:defE,params:defP};
 
 function calc(ent,p){var r=[];for(var i=1;i<ent.length;i++){var pv=ent[i-1],cu=ent[i];var cp=cu.p||p;
-var vm=cu.v-pv.v;var vt=vm*cp.c_m3_v+(cp.fix_v||0);
-var sk=(cu.k-pv.k)+cp.doi;var st=sk*cp.c_kwh_s*(1+cp.pdv_s);
+var vm=cu.v-pv.v;var vt=vm*(cp.c_m3_v||0)+(cp.fix_v||0);
+var kw=cu.k-pv.k;var sk,st;
+if(cp.c_energija===undefined||cp.c_energija===null){sk=kw+(cp.doi||0);st=sk*(cp.c_kwh_s||0)*(1+(cp.pdv_s||0));}
+else{sk=kw;st=(kw*((cp.c_energija||0)+(cp.c_mreza||0)+(cp.c_oie||0))+(cp.mjer||0))*(1+(cp.pdv_s||0));}
 var fx=(cp.smece||0)+(cp.kom||0)+(cp.amis||0)+(cp.hrt||0)+(cp.ost||0);
-r.push({id:cu.id,date:cu.d,vm:vm,vt:vt,sk:sk,st:st,fx:fx,uk:vt+st+fx});}return r;}
+r.push({id:cu.id,date:cu.d,sv:cu.v,sk2:cu.k,vm:vm,vt:vt,sk:sk,st:st,fx:fx,uk:vt+st+fx});}return r;}
 
 var C={bg:"#F4F6FB",cd:"#FFF",ac:"#E03131",bl:"#1B5BD6",bll:"#E7EFFF",blb:"#9DBCF5",vo:"#1B5BD6",sr:"#D97706",srb:"#F5C518",gr:"#E03131",tx:"#14213D",mu:"#5A6B8C",bo:"#C9D2E4",hb:"#10265F",ha:"#F5C518"};
 function fmt(n){return n==null||isNaN(n)?"\u2014":n.toLocaleString("hr-HR",{minimumFractionDigits:2,maximumFractionDigits:2})+" \u20AC"}
@@ -71,7 +74,7 @@ ue(function(){if(!data)return;var iv=setInterval(function(){if(Date.now()-wLock<
 function sv(nd){wLock=Date.now();setData(nd);try{localStorage.setItem("rz-sim-bk",JSON.stringify(nd))}catch(x){}fbS(nd).then(function(){sC(true)}).catch(function(){sC(false);showT("Nije spremljeno u bazu!")})}
 
 var ent=data?(data.entries||[]):[];
-var par=data?(data.params||defP):defP;
+var par=mergeP(data?data.params:null);
 var res=um(function(){return calc(ent,par)},[ent,par]);
 var st=um(function(){if(!res.length)return{};var t=0,v=0,s=0;for(var i=0;i<res.length;i++){t+=res[i].uk;v+=res[i].vt;s+=res[i].st}return{total:t,avg:t/res.length,voda:v,struja:s}},[res]);
 
@@ -97,7 +100,7 @@ e('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center
 e('div',{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginTop:6,marginBottom:14}},e('div',{style:{fontSize:26,fontWeight:800,fontFamily:"'Archivo',sans-serif",letterSpacing:-.5}},"\u0160imun\u010Devac"),st.total>0?e('div',{style:{fontSize:13,color:C.hb,fontWeight:800,background:C.ha,padding:"4px 12px",borderRadius:6}},fmt(st.total)):null),
 e('div',{style:{display:"flex",height:5}},e('div',{style:{flex:3,background:C.bl}}),e('div',{style:{flex:1,background:C.ha}}),e('div',{style:{flex:1,background:C.ac}}))),
 e('div',{style:{padding:"14px 14px 0"}},
-vw==="tablica"?e('div',null,e('div',{style:{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}},SC("Prosjek/mj",st.avg,C.ac),SC("Voda",st.voda,C.bl),SC("Struja",st.struja,C.srb)),e('div',{style:{overflowX:"auto",borderRadius:10,border:"1.5px solid "+C.bo,background:C.cd}},e('table',{style:{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:500}},e('thead',null,e('tr',null,["Datum","Voda m3","Voda EUR","Struja kWh","Struja EUR","Fiksni","UKUPNO",""].map(function(h,i){return e('th',{key:i,style:{padding:"9px 6px",textAlign:i===0?"left":"right",fontWeight:700,color:"#fff",background:C.bl,fontSize:9,textTransform:"uppercase",letterSpacing:.5,border:"1px solid "+C.bl,whiteSpace:"nowrap"}},h)}))),e('tbody',null,res.map(function(r,i){return e('tr',{key:r.id,style:{background:i%2===0?"#fff":"#F0F4FC"}},e('td',{style:{padding:"8px 6px",fontWeight:600,whiteSpace:"nowrap",border:"1px solid "+C.bo}},r.date),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.bl,border:"1px solid "+C.bo}},f2(r.vm)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.bl,fontWeight:700,border:"1px solid "+C.bo}},f2(r.vt)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.sr,border:"1px solid "+C.bo}},Math.round(r.sk)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.sr,fontWeight:700,border:"1px solid "+C.bo}},f2(r.st)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.ac,border:"1px solid "+C.bo}},f2(r.fx)),e('td',{style:{padding:"8px 6px",textAlign:"right",fontWeight:800,border:"1px solid "+C.bo,background:i%2===0?"#FFFDF0":"#FFF9DC"}},f2(r.uk)),e('td',{style:{padding:4,textAlign:"center",border:"1px solid "+C.bo}},e('button',{onClick:function(){delR(r.id)},style:{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14}},"\u00D7")))})))),!res.length?e('div',{style:{textAlign:"center",padding:30,color:C.mu}},"Dodajte barem 2 ocitanja"):null):null,
+vw==="tablica"?e('div',null,e('div',{style:{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}},SC("Prosjek/mj",st.avg,C.ac),SC("Voda",st.voda,C.bl),SC("Struja",st.struja,C.srb)),e('div',{style:{overflowX:"auto",borderRadius:10,border:"1.5px solid "+C.bo,background:C.cd}},e('table',{style:{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:660}},e('thead',null,e('tr',null,["Datum","Stanje vode","Voda m3","Voda EUR","Stanje struje","Struja kWh","Struja EUR","Fiksni","UKUPNO",""].map(function(h,i){return e('th',{key:i,style:{padding:"9px 6px",textAlign:i===0?"left":"right",fontWeight:700,color:"#fff",background:C.bl,fontSize:9,textTransform:"uppercase",letterSpacing:.5,border:"1px solid "+C.bl,whiteSpace:"nowrap"}},h)}))),e('tbody',null,res.map(function(r,i){return e('tr',{key:r.id,style:{background:i%2===0?"#fff":"#F0F4FC"}},e('td',{style:{padding:"8px 6px",fontWeight:600,whiteSpace:"nowrap",border:"1px solid "+C.bo}},r.date),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.mu,background:i%2===0?"#FAFBFE":"#E9EFFA",border:"1px solid "+C.bo}},r.sv),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.bl,border:"1px solid "+C.bo}},f2(r.vm)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.bl,fontWeight:700,border:"1px solid "+C.bo}},f2(r.vt)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.mu,background:i%2===0?"#FAFBFE":"#E9EFFA",border:"1px solid "+C.bo}},r.sk2),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.sr,border:"1px solid "+C.bo}},Math.round(r.sk)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.sr,fontWeight:700,border:"1px solid "+C.bo}},f2(r.st)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.ac,border:"1px solid "+C.bo}},f2(r.fx)),e('td',{style:{padding:"8px 6px",textAlign:"right",fontWeight:800,border:"1px solid "+C.bo,background:i%2===0?"#FFFDF0":"#FFF9DC"}},f2(r.uk)),e('td',{style:{padding:4,textAlign:"center",border:"1px solid "+C.bo}},e('button',{onClick:function(){delR(r.id)},style:{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14}},"\u00D7")))})))),!res.length?e('div',{style:{textAlign:"center",padding:30,color:C.mu}},"Dodajte barem 2 ocitanja"):null):null,
 vw==="unos"?e('div',null,e('div',{style:{fontSize:20,fontWeight:800,fontFamily:"'Archivo',serif",marginBottom:16}},"Novo ocitanje"),e('div',{style:{background:C.cd,borderRadius:12,padding:20,boxShadow:"0 1px 4px rgba(0,0,0,.06)",marginBottom:16}},
 e('label',{style:{fontSize:11,fontWeight:700,color:C.mu,textTransform:"uppercase",letterSpacing:.8,display:"block",marginBottom:6}},"Datum (dd.mm.yyyy.)"),
 e('div',{style:{display:"flex",gap:6,alignItems:"center",marginBottom:16}},
@@ -120,11 +123,14 @@ e('div',{style:{fontSize:12,color:C.bl,fontWeight:600,marginBottom:16,display:"f
 e(PS,{title:"Parametri vode",icon:"\uD83D\uDCA7"},
 e(PF,{label:"Cijena po m3",value:par.c_m3_v,onChange:function(v){setPr("c_m3_v",v)},unit:"\u20AC"}),
 e(PF,{label:"Fiksna naknada mj.",value:par.fix_v,onChange:function(v){setPr("fix_v",v)},unit:"\u20AC"})),
-e(PS,{title:"Parametri struje",icon:"\u26A1"},
-e(PF,{label:"Cijena kWh",value:par.c_kwh_s,onChange:function(v){setPr("c_kwh_s",v)},unit:"\u20AC"}),
-e(PF,{label:"Mjerenje mj.",value:par.mjer,onChange:function(v){setPr("mjer",v)},unit:"\u20AC"}),
+e(PS,{title:"Parametri struje (HEP)",icon:"\u26A1"},
+e(PF,{label:"Energija / kWh",value:par.c_energija,onChange:function(v){setPr("c_energija",v)},unit:"\u20AC"}),
+e(PF,{label:"Mrezarina / kWh",value:par.c_mreza,onChange:function(v){setPr("c_mreza",v)},unit:"\u20AC"}),
+e(PF,{label:"OIE naknada / kWh",value:par.c_oie,onChange:function(v){setPr("c_oie",v)},unit:"\u20AC"}),
+e(PF,{label:"Mjerno mjesto / mj",value:par.mjer,onChange:function(v){setPr("mjer",v)},unit:"\u20AC"}),
 e(PF,{label:"PDV struja",value:par.pdv_s,onChange:function(v){setPr("pdv_s",v)}}),
-e(PF,{label:"Dodatak OI",value:par.doi,onChange:function(v){setPr("doi",v)},unit:"kWh"})),
+e('div',{style:{borderTop:"1px solid "+C.blb,marginTop:8,paddingTop:8,display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:13}},e('span',null,"Ukupno / kWh s PDV-om"),e('span',{style:{color:C.bl}},(((par.c_energija||0)+(par.c_mreza||0)+(par.c_oie||0))*(1+(par.pdv_s||0))).toFixed(4)+" \u20AC")),
+e('div',{style:{fontSize:10,color:C.mu,paddingTop:6,lineHeight:1.5}},"Mrezarina, OIE i mjerno mjesto su sluzbene HEP vrijednosti od 01.01.2026. (tarifni model Plavi). Cijenu energije provjerite na svom racunu.")),
 e(PS,{title:"Fiksni mjesecni izdaci",icon:"\uD83C\uDFE0"},
 e(PF,{label:"Smece",value:par.smece,onChange:function(v){setPr("smece",v)},unit:"\u20AC"}),
 e(PF,{label:"Komunalije",value:par.kom,onChange:function(v){setPr("kom",v)},unit:"\u20AC"}),
@@ -136,7 +142,7 @@ e('div',{style:{background:C.cd,borderRadius:10,padding:16,border:"1px solid "+C
 e('div',{style:{fontSize:12,fontWeight:700,color:C.mu,marginBottom:6}},"Formula:"),
 e('div',{style:{fontSize:11,color:C.tx,lineHeight:1.7}},
 e('b',{style:{color:C.vo}},"Voda")," = m3 \u00D7 cijena + fiksna naknada",e('br'),
-e('b',{style:{color:C.sr}},"Struja")," = (kWh + OI) \u00D7 cijena \u00D7 (1+PDV)",e('br'),
+e('b',{style:{color:C.sr}},"Struja")," = [kWh \u00D7 (energija + mrezarina + OIE) + mjerno mjesto] \u00D7 (1+PDV)",e('br'),
 e('b',null,"Ukupno")," = Voda + Struja + fiksni")),
 e('button',{onClick:rst,style:{width:"100%",background:"none",border:"1.5px solid #e74c3c",color:"#e74c3c",borderRadius:10,padding:12,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"'Inter'"}},"Vrati na pocetne podatke")):null),
 e('div',{style:{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:600,background:C.cd,borderTop:"1.5px solid "+C.bo,display:"flex",padding:"0 0 10px",zIndex:50,boxShadow:"0 -4px 16px rgba(20,33,61,.08)"}},nv.map(function(n){return e('button',{key:n.id,onClick:function(){if(n.id==="unos"&&vw!=="unos"){var now=new Date();var td=String(now.getDate());td=td.length<2?"0"+td:td;var tm=String(now.getMonth()+1);tm=tm.length<2?"0"+tm:tm;var ty=String(now.getFullYear());sN({v:nr.v,k:nr.k,dd:td,mm:tm,yy:ty})}sV(n.id)},style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"0 0 5px",background:"none",border:"none",borderTop:vw===n.id?"3px solid "+C.ha:"3px solid transparent",cursor:"pointer",color:vw===n.id?C.bl:C.mu,fontFamily:"'Inter'"}},e('span',{style:{fontSize:18,marginTop:5}},n.i),e('span',{style:{fontSize:10,fontWeight:vw===n.id?800:500}},n.l))})));}
