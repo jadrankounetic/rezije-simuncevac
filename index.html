@@ -35,7 +35,7 @@ function fbS(d){if(!AUTH)return Promise.reject(new Error("no key"));return fetch
 var defP={c_m3_v:1.68,fix_v:0,c_opsk:0.091324,c_dist:0.037608,c_prij:0.014716,c_oie:0.013239,c_sol:0.003982,c_solp:0.003982,n_omm:1.983,n_opsk:0.982,pdv_s:0.13,smece:0,kom:0,amis:0,hrt:10.62,ost:0};
 function mergeP(p){var o={};for(var k in defP)o[k]=defP[k];if(p){for(var k2 in p){if(p[k2]!==undefined&&p[k2]!==null)o[k2]=p[k2]}}return o}
 function pd(s){if(!s)return null;var t=String(s).replace(/\.$/,"").split(".");if(t.length<3)return null;var d=parseInt(t[0],10),m=parseInt(t[1],10),y=parseInt(t[2],10);if(isNaN(d)||isNaN(m)||isNaN(y))return null;if(y<100)y+=2000;var dt=new Date(y,m-1,d);return isNaN(dt.getTime())?null:dt}
-function mjeseci(d1,d2){var a=pd(d1),b=pd(d2);if(!a||!b)return 1;var dn=Math.round((b-a)/86400000);if(dn<=0)return 1;return Math.round(dn/30*100)/100}
+function mjeseci(d1,d2){var a=pd(d1),b=pd(d2);if(!a||!b)return 1;var dn=Math.round((b-a)/86400000);if(dn<=0)return 1;if(dn>=28&&dn<=31)return 1;return Math.round(dn/30*100)/100}
 var defE=[];
 var defD={entries:defE,params:defP};
 
@@ -44,9 +44,11 @@ var vm=cu.v-pv.v;var vt=vm*(cp.c_m3_v||0)+(cp.fix_v||0);
 var kwr=cu.k-pv.k;var sk,st,mj=1;
 if(cp.c_opsk!==undefined&&cp.c_opsk!==null){
 var kw=Math.round(kwr);mj=mjeseci(pv.d,cu.d);
-var en=kw*((cp.c_opsk||0)+(cp.c_dist||0)+(cp.c_prij||0))+mj*((cp.n_omm||0)+(cp.n_opsk||0));
-var os=en+kw*((cp.c_oie||0)+(cp.c_sol||0)-(cp.c_solp||0));
-sk=kwr;st=os*(1+(cp.pdv_s||0));}
+var a1=f2(kw*(cp.c_opsk||0)),a2=f2(kw*(cp.c_prij||0)),a3=f2(kw*(cp.c_dist||0));
+var b1=f2(mj*(cp.n_opsk||0)),b2=f2(mj*(cp.n_omm||0));
+var c1=f2(kw*(cp.c_oie||0)),d1=f2(kw*(cp.c_sol||0)),d2=f2(kw*(cp.c_solp||0));
+var os=f2(a1+a2+a3+b1+b2+c1+d1-d2);
+sk=kwr;st=f2(os+f2(os*(cp.pdv_s||0)));}
 else if(cp.c_energija!==undefined&&cp.c_energija!==null){
 sk=kwr;st=(kwr*((cp.c_energija||0)+(cp.c_mreza||0)+(cp.c_oie||0))+(cp.mjer||0))*(1+(cp.pdv_s||0));}
 else{sk=kwr+(cp.doi||0);st=sk*(cp.c_kwh_s||0)*(1+(cp.pdv_s||0));}
@@ -146,7 +148,7 @@ e(PF,{label:"PDV struja",value:par.pdv_s,onChange:function(v){setPr("pdv_s",v)}}
 e('div',{style:{borderTop:"1px solid "+C.blb,marginTop:8,paddingTop:8}},
 e('div',{style:{display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:12,marginBottom:3}},e('span',null,"Varijabilno / kWh s PDV"),e('span',{style:{color:C.bl}},(((par.c_opsk||0)+(par.c_dist||0)+(par.c_prij||0)+(par.c_oie||0)+(par.c_sol||0)-(par.c_solp||0))*(1+(par.pdv_s||0))).toFixed(4)+" \u20AC")),
 e('div',{style:{display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:12}},e('span',null,"Fiksno / mj s PDV"),e('span',{style:{color:C.bl}},fmt(((par.n_omm||0)+(par.n_opsk||0))*(1+(par.pdv_s||0)))))),
-e('div',{style:{fontSize:10,color:C.mu,paddingTop:6,lineHeight:1.5}},"Vrijednosti s HEP racuna, tarifni model Kucanstvo Plavi. Mjesecne naknade se razmjerno dijele prema broju dana izmedu ocitanja (dani/30), kao na racunu.")),
+e('div',{style:{fontSize:10,color:C.mu,paddingTop:6,lineHeight:1.5}},"Vrijednosti s HEP racuna, tarifni model Kucanstvo Plavi. Svaka stavka se zaokruzuje na lipe prije zbrajanja, kao na racunu. Mjesecne naknade: 1 mj za redovno ocitanje (28-31 dana), inace razmjerno (dani/30).")),
 e(PS,{title:"Fiksni mjesecni izdaci",icon:"\uD83C\uDFE0"},
 e(PF,{label:"Smece",value:par.smece,onChange:function(v){setPr("smece",v)},unit:"\u20AC"}),
 e(PF,{label:"Komunalije",value:par.kom,onChange:function(v){setPr("kom",v)},unit:"\u20AC"}),
