@@ -39,16 +39,29 @@ function mjeseci(d1,d2){var a=pd(d1),b=pd(d2);if(!a||!b)return 1;var dn=Math.rou
 var defE=[];
 var defD={entries:defE,params:defP};
 
-function calc(ent,p){var r=[];for(var i=1;i<ent.length;i++){var pv=ent[i-1],cu=ent[i];var cp=cu.p||p;
-var vm=cu.v-pv.v;var vt=vm*(cp.c_m3_v||0)+(cp.fix_v||0);
-var kwr=cu.k-pv.k;var sk,st,mj=1;
-if(cp.c_opsk!==undefined&&cp.c_opsk!==null){
-var kw=Math.round(kwr);mj=mjeseci(pv.d,cu.d);
+function dana(d1,d2){var a=pd(d1),b=pd(d2);if(!a||!b)return 0;return Math.round((b-a)/86400000)}
+function strujaHEP(kw,mj,cp){
 var a1=f2(kw*(cp.c_opsk||0)),a2=f2(kw*(cp.c_prij||0)),a3=f2(kw*(cp.c_dist||0));
 var b1=f2(mj*(cp.n_opsk||0)),b2=f2(mj*(cp.n_omm||0));
 var c1=f2(kw*(cp.c_oie||0)),d1=f2(kw*(cp.c_sol||0)),d2=f2(kw*(cp.c_solp||0));
 var os=f2(a1+a2+a3+b1+b2+c1+d1-d2);
-sk=kwr;st=f2(os+f2(os*(cp.pdv_s||0)));}
+return f2(os+f2(os*(cp.pdv_s||0)));}
+function kontrole(all,p){var r=[],last=null;
+for(var i=0;i<all.length;i++){var x=all[i];
+if(!x.ko){last=x;continue}
+if(!last){r.push({id:x.id,date:x.d,st:x.k,od:null,kw:0,dn:0,dan:0,proc:null});continue}
+var cp=x.p||p;var kw=Math.round(x.k-last.k);var dn=dana(last.d,x.d);
+var mj=dn>0?Math.round(dn/30*100)/100:0;
+var proc=(cp.c_opsk!==undefined&&cp.c_opsk!==null)?strujaHEP(kw,mj,cp):null;
+r.push({id:x.id,date:x.d,st:x.k,od:last.d,kw:kw,dn:dn,dan:dn>0?kw/dn:0,proc:proc});}
+return r;}
+function calc(all,p){var ent=[],q;for(q=0;q<all.length;q++){if(!all[q].ko)ent.push(all[q])}
+var r=[];for(var i=1;i<ent.length;i++){var pv=ent[i-1],cu=ent[i];var cp=cu.p||p;
+var vm=cu.v-pv.v;var vt=vm*(cp.c_m3_v||0)+(cp.fix_v||0);
+var kwr=cu.k-pv.k;var sk,st,mj=1;
+if(cp.c_opsk!==undefined&&cp.c_opsk!==null){
+var kw=Math.round(kwr);mj=mjeseci(pv.d,cu.d);
+sk=kwr;st=strujaHEP(kw,mj,cp);}
 else if(cp.c_energija!==undefined&&cp.c_energija!==null){
 sk=kwr;st=(kwr*((cp.c_energija||0)+(cp.c_mreza||0)+(cp.c_oie||0))+(cp.mjer||0))*(1+(cp.pdv_s||0));}
 else{sk=kwr+(cp.doi||0);st=sk*(cp.c_kwh_s||0)*(1+(cp.pdv_s||0));}
@@ -74,7 +87,8 @@ var ds=us(null),data=ds[0],setData=ds[1];
 var ls=us(true),ld=ls[0],sL=ls[1];
 var cs=us(false),cn=cs[0],sC=cs[1];
 var vs=us("tablica"),vw=vs[0],sV=vs[1];
-var ns=us({v:"",k:"",dd:"",mm:"",yy:""}),nr=ns[0],sN=ns[1];
+var ns=us({v:"",k:"",dd:"",mm:"",yy:"",ko:false}),nr=ns[0],sN=ns[1];
+function upN(o){var n={};for(var q in nr)n[q]=nr[q];for(var w in o)n[w]=o[w];sN(n)}
 var ts=us(null),to=ts[0],sT=ts[1];
 var showT=uc(function(m){sT(m);setTimeout(function(){sT(null)},2000)},[]);
 
@@ -86,6 +100,7 @@ function sv(nd){wLock=Date.now();setData(nd);try{localStorage.setItem("rz-sim-bk
 var ent=data?(data.entries||[]):[];
 var par=mergeP(data?data.params:null);
 var res=um(function(){return calc(ent,par)},[ent,par]);
+var kon=um(function(){return kontrole(ent,par)},[ent,par]);
 var st=um(function(){if(!res.length)return{};var t=0,v=0,s=0;for(var i=0;i<res.length;i++){t+=res[i].uk;v+=res[i].vt;s+=res[i].st}return{total:t,avg:t/res.length,voda:v,struja:s}},[res]);
 
 if(ld||!data)return e('div',{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",gap:12}},e('div',{style:{width:28,height:28,border:"3px solid #DDD8CF",borderTopColor:"#1B5BD6",borderRadius:"50%",animation:"sp .7s linear infinite"}}),e('div',{style:{fontSize:13,color:"#7F8C8D"}},"Spajanje..."));
@@ -93,7 +108,7 @@ if(ld||!data)return e('div',{style:{display:"flex",flexDirection:"column",alignI
 var setE=function(fn){sv({entries:fn(data.entries||[]),params:data.params})};
 var setPr=function(k,v){var np={};for(var y in data.params)np[y]=data.params[y];np[k]=v;sv({entries:data.entries,params:np})};
 
-function addR(){var dd=nr.dd&&nr.mm&&nr.yy?nr.dd+"."+nr.mm+"."+nr.yy+".":"";if(!dd||!nr.k||!nr.v){showT("Popunite sva polja!");return}var snap={};for(var pk in par)snap[pk]=par[pk];setE(function(a){return a.concat({id:Date.now(),d:dd,v:parseFloat(nr.v),k:parseFloat(nr.k),p:snap})});sN({v:"",k:"",dd:"",mm:"",yy:""});showT("Dodano \u2713")}
+function addR(){var dd=nr.dd&&nr.mm&&nr.yy?nr.dd+"."+nr.mm+"."+nr.yy+".":"";var isK=!!nr.ko;if(!dd||!nr.k||(!isK&&!nr.v)){showT("Popunite sva polja!");return}var snap={};for(var pk in par)snap[pk]=par[pk];var row={id:Date.now(),d:dd,v:isK?0:parseFloat(nr.v),k:parseFloat(nr.k),p:snap};if(isK)row.ko=true;setE(function(a){return a.concat(row)});sN({v:"",k:"",dd:"",mm:"",yy:"",ko:isK});showT(isK?"Kontrolno ocitanje dodano \u2713":"Dodano \u2713")}
 function delR(id){if(window.confirm("Stvarno zelite obrisat unos?")){setE(function(a){return a.filter(function(x){return x.id!==id})});showT("Obrisano")}}
 function rst(){var pw=window.prompt("Unesite lozinku:");if(pw==="1234"){sv(defD);showT("Resetirano")}else if(pw!==null){showT("Pogresna lozinka!")}}
 
@@ -110,23 +125,41 @@ e('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center
 e('div',{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginTop:6,marginBottom:14}},e('div',{style:{fontSize:26,fontWeight:800,fontFamily:"'Archivo',sans-serif",letterSpacing:-.5}},"\u0160imun\u010Devac"),st.total>0?e('div',{style:{fontSize:13,color:C.hb,fontWeight:800,background:C.ha,padding:"4px 12px",borderRadius:6}},fmt(st.total)):null),
 e('div',{style:{display:"flex",height:5}},e('div',{style:{flex:3,background:C.bl}}),e('div',{style:{flex:1,background:C.ha}}),e('div',{style:{flex:1,background:C.ac}}))),
 e('div',{style:{padding:"14px 14px 0"}},
-vw==="tablica"?e('div',null,e('div',{style:{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}},SC("Prosjek/mj",st.avg,C.ac),SC("Voda",st.voda,C.bl),SC("Struja",st.struja,C.srb)),e('div',{style:{overflowX:"auto",borderRadius:10,border:"1.5px solid "+C.bo,background:C.cd}},e('table',{style:{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:660}},e('thead',null,e('tr',null,["Datum","Stanje vode","Voda m3","Voda EUR","Stanje struje","Struja kWh","Struja EUR","Fiksni","UKUPNO",""].map(function(h,i){return e('th',{key:i,style:{padding:"9px 6px",textAlign:i===0?"left":"right",fontWeight:700,color:"#fff",background:C.bl,fontSize:9,textTransform:"uppercase",letterSpacing:.5,border:"1px solid "+C.bl,whiteSpace:"nowrap"}},h)}))),e('tbody',null,res.map(function(r,i){return e('tr',{key:r.id,style:{background:i%2===0?"#fff":"#F0F4FC"}},e('td',{style:{padding:"8px 6px",fontWeight:600,whiteSpace:"nowrap",border:"1px solid "+C.bo}},r.date),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.mu,background:i%2===0?"#FAFBFE":"#E9EFFA",border:"1px solid "+C.bo}},r.sv),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.bl,border:"1px solid "+C.bo}},f2(r.vm)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.bl,fontWeight:700,border:"1px solid "+C.bo}},f2(r.vt)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.mu,background:i%2===0?"#FAFBFE":"#E9EFFA",border:"1px solid "+C.bo}},r.sk2),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.sr,border:"1px solid "+C.bo}},Math.round(r.sk)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.sr,fontWeight:700,border:"1px solid "+C.bo}},f2(r.st)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.ac,border:"1px solid "+C.bo}},f2(r.fx)),e('td',{style:{padding:"8px 6px",textAlign:"right",fontWeight:800,border:"1px solid "+C.bo,background:i%2===0?"#FFFDF0":"#FFF9DC"}},f2(r.uk)),e('td',{style:{padding:4,textAlign:"center",border:"1px solid "+C.bo}},e('button',{onClick:function(){delR(r.id)},style:{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14}},"\u00D7")))})))),!res.length?e('div',{style:{textAlign:"center",padding:30,color:C.mu}},"Dodajte barem 2 ocitanja"):null):null,
+vw==="tablica"?e('div',null,e('div',{style:{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}},SC("Prosjek/mj",st.avg,C.ac),SC("Voda",st.voda,C.bl),SC("Struja",st.struja,C.srb)),e('div',{style:{overflowX:"auto",borderRadius:10,border:"1.5px solid "+C.bo,background:C.cd}},e('table',{style:{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:660}},e('thead',null,e('tr',null,["Datum","Stanje vode","Voda m3","Voda EUR","Stanje struje","Struja kWh","Struja EUR","Fiksni","UKUPNO",""].map(function(h,i){return e('th',{key:i,style:{padding:"9px 6px",textAlign:i===0?"left":"right",fontWeight:700,color:"#fff",background:C.bl,fontSize:9,textTransform:"uppercase",letterSpacing:.5,border:"1px solid "+C.bl,whiteSpace:"nowrap"}},h)}))),e('tbody',null,res.map(function(r,i){return e('tr',{key:r.id,style:{background:i%2===0?"#fff":"#F0F4FC"}},e('td',{style:{padding:"8px 6px",fontWeight:600,whiteSpace:"nowrap",border:"1px solid "+C.bo}},r.date),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.mu,background:i%2===0?"#FAFBFE":"#E9EFFA",border:"1px solid "+C.bo}},r.sv),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.bl,border:"1px solid "+C.bo}},f2(r.vm)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.bl,fontWeight:700,border:"1px solid "+C.bo}},f2(r.vt)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.mu,background:i%2===0?"#FAFBFE":"#E9EFFA",border:"1px solid "+C.bo}},r.sk2),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.sr,border:"1px solid "+C.bo}},Math.round(r.sk)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.sr,fontWeight:700,border:"1px solid "+C.bo}},f2(r.st)),e('td',{style:{padding:"8px 6px",textAlign:"right",color:C.ac,border:"1px solid "+C.bo}},f2(r.fx)),e('td',{style:{padding:"8px 6px",textAlign:"right",fontWeight:800,border:"1px solid "+C.bo,background:i%2===0?"#FFFDF0":"#FFF9DC"}},f2(r.uk)),e('td',{style:{padding:4,textAlign:"center",border:"1px solid "+C.bo}},e('button',{onClick:function(){delR(r.id)},style:{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14}},"\u00D7")))})))),!res.length?e('div',{style:{textAlign:"center",padding:30,color:C.mu}},"Dodajte barem 2 ocitanja"):null,
+kon.length?e('div',{style:{marginTop:20}},
+e('div',{style:{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}},e('div',{style:{fontSize:14,fontWeight:800,fontFamily:"'Archivo',sans-serif"}},"Kontrolna ocitanja struje"),e('span',{style:{fontSize:9,fontWeight:800,letterSpacing:.5,background:C.srb,color:C.tx,padding:"3px 7px",borderRadius:4}},"INFORMATIVNO")),
+e('div',{style:{overflowX:"auto",borderRadius:10,border:"1.5px solid "+C.bo,background:C.cd}},e('table',{style:{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:600}},
+e('thead',null,e('tr',null,["Datum","Stanje kWh","Od obracuna","Potroseno kWh","Dana","kWh/dan","Procjena EUR",""].map(function(h,i){return e('th',{key:i,style:{padding:"9px 6px",textAlign:i===0?"left":"right",fontWeight:800,color:C.tx,background:C.srb,fontSize:9,textTransform:"uppercase",letterSpacing:.5,border:"1px solid #DBAE00",whiteSpace:"nowrap"}},h)}))),
+e('tbody',null,kon.map(function(r,i){var bg=i%2===0?"#fff":"#FFFBEA";var td={padding:"8px 6px",textAlign:"right",border:"1px solid "+C.bo};return e('tr',{key:r.id,style:{background:bg}},
+e('td',{style:{padding:"8px 6px",fontWeight:600,whiteSpace:"nowrap",border:"1px solid "+C.bo}},r.date),
+e('td',{style:Object.assign({},td,{color:C.mu,background:i%2===0?"#FAFBFE":"#F6F1DC"})},r.st),
+e('td',{style:Object.assign({},td,{color:C.mu,whiteSpace:"nowrap"})},r.od||"—"),
+e('td',{style:Object.assign({},td,{color:C.sr,fontWeight:700})},r.od?r.kw:"—"),
+e('td',{style:td},r.od?r.dn:"—"),
+e('td',{style:Object.assign({},td,{color:C.bl,fontWeight:700})},r.od&&r.dn>0?f2(r.dan):"—"),
+e('td',{style:Object.assign({},td,{fontWeight:800})},r.od&&r.proc!==null?f2(r.proc):"—"),
+e('td',{style:{padding:4,textAlign:"center",border:"1px solid "+C.bo}},e('button',{onClick:function(){delR(r.id)},style:{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14}},"×")))})))),
+e('div',{style:{fontSize:10,color:C.mu,marginTop:7,lineHeight:1.5}},"Procjena je informativni trosak struje od zadnjeg obracunskog ocitanja do kontrolnog, po cijenama vazecim u trenutku unosa. Kontrolna ocitanja ne ulaze u tablicu iznad, grafove ni ukupne iznose.")):null):null,
 vw==="unos"?e('div',null,e('div',{style:{fontSize:20,fontWeight:800,fontFamily:"'Archivo',serif",marginBottom:16}},"Novo ocitanje"),e('div',{style:{background:C.cd,borderRadius:12,padding:20,boxShadow:"0 1px 4px rgba(0,0,0,.06)",marginBottom:16}},
+e('div',{style:{marginBottom:14}},
+e('div',{style:{display:"flex",border:"1.5px solid "+C.bo,borderRadius:8,overflow:"hidden"}},
+[{k:false,l:"Obracunsko"},{k:true,l:"Kontrolno"}].map(function(o,ix){var on=(!!nr.ko)===o.k;return e('button',{key:ix,onClick:function(){upN({ko:o.k})},style:{flex:1,padding:"9px 6px",border:"none",background:on?(o.k?C.srb:C.bl):"#fff",color:on?(o.k?C.tx:"#fff"):C.mu,fontSize:12,fontWeight:on?800:600,cursor:"pointer",fontFamily:"'Inter'"}},o.l)})),
+nr.ko?e('div',{style:{fontSize:10,color:C.mu,marginTop:7,lineHeight:1.5}},"Kontrolno ocitanje je samo informativno — ne ulazi u obracun, tablicu ni ukupne iznose. Upisuje se samo stanje struje."):null),
 e('label',{style:{fontSize:11,fontWeight:700,color:C.mu,textTransform:"uppercase",letterSpacing:.8,display:"block",marginBottom:6}},"Datum (dd.mm.yyyy.)"),
 e('div',{style:{display:"flex",gap:6,alignItems:"center",marginBottom:16}},
-e('select',{value:nr.dd||"",onChange:function(x){sN({v:nr.v,k:nr.k,dd:x.target.value,mm:nr.mm,yy:nr.yy})},style:Object.assign({},ib,{width:"auto",flex:1,textAlign:"center"})},e('option',{value:""},"Dan"),function(){var o=[];for(var i=1;i<=31;i++)o.push(e('option',{key:i,value:String(i<10?"0"+i:i)},i<10?"0"+i:i));return o}()),
+e('select',{value:nr.dd||"",onChange:function(x){upN({dd:x.target.value})},style:Object.assign({},ib,{width:"auto",flex:1,textAlign:"center"})},e('option',{value:""},"Dan"),function(){var o=[];for(var i=1;i<=31;i++)o.push(e('option',{key:i,value:String(i<10?"0"+i:i)},i<10?"0"+i:i));return o}()),
 e('span',{style:{fontSize:16,color:C.mu}},"."),
-e('select',{value:nr.mm||"",onChange:function(x){sN({v:nr.v,k:nr.k,dd:nr.dd,mm:x.target.value,yy:nr.yy})},style:Object.assign({},ib,{width:"auto",flex:1,textAlign:"center"})},e('option',{value:""},"Mj."),function(){var o=[];for(var i=1;i<=12;i++)o.push(e('option',{key:i,value:String(i<10?"0"+i:i)},i<10?"0"+i:i));return o}()),
+e('select',{value:nr.mm||"",onChange:function(x){upN({mm:x.target.value})},style:Object.assign({},ib,{width:"auto",flex:1,textAlign:"center"})},e('option',{value:""},"Mj."),function(){var o=[];for(var i=1;i<=12;i++)o.push(e('option',{key:i,value:String(i<10?"0"+i:i)},i<10?"0"+i:i));return o}()),
 e('span',{style:{fontSize:16,color:C.mu}},"."),
-e('select',{value:nr.yy||"",onChange:function(x){sN({v:nr.v,k:nr.k,dd:nr.dd,mm:nr.mm,yy:x.target.value})},style:Object.assign({},ib,{width:"auto",flex:1.2,textAlign:"center"})},e('option',{value:""},"God."),function(){var o=[];var cy=new Date().getFullYear();for(var i=cy;i<=cy+5;i++)o.push(e('option',{key:i,value:String(i)},i));return o}()),
+e('select',{value:nr.yy||"",onChange:function(x){upN({yy:x.target.value})},style:Object.assign({},ib,{width:"auto",flex:1.2,textAlign:"center"})},e('option',{value:""},"God."),function(){var o=[];var cy=new Date().getFullYear();for(var i=cy;i<=cy+5;i++)o.push(e('option',{key:i,value:String(i)},i));return o}()),
 e('span',{style:{fontSize:16,color:C.mu}},".")),
-e('label',{style:{fontSize:11,fontWeight:700,color:C.vo,textTransform:"uppercase",letterSpacing:.8,display:"block",marginBottom:6}},"Stanje vode (m3)"),
-e('input',{type:"number",placeholder:"npr. 1250",value:nr.v,onChange:function(x){sN({v:x.target.value,k:nr.k,dd:nr.dd,mm:nr.mm,yy:nr.yy})},style:Object.assign({},ib,{marginBottom:16,fontSize:20,fontWeight:700,textAlign:"center"})}),
+nr.ko?null:e('label',{style:{fontSize:11,fontWeight:700,color:C.vo,textTransform:"uppercase",letterSpacing:.8,display:"block",marginBottom:6}},"Stanje vode (m3)"),
+nr.ko?null:e('input',{type:"number",placeholder:"npr. 1250",value:nr.v,onChange:function(x){upN({v:x.target.value})},style:Object.assign({},ib,{marginBottom:16,fontSize:20,fontWeight:700,textAlign:"center"})}),
 e('label',{style:{fontSize:11,fontWeight:700,color:C.sr,textTransform:"uppercase",letterSpacing:.8,display:"block",marginBottom:6}},"Stanje struje (kWh)"),
-e('input',{type:"number",placeholder:"npr. 12000",value:nr.k,onChange:function(x){sN({v:nr.v,k:x.target.value,dd:nr.dd,mm:nr.mm,yy:nr.yy})},style:Object.assign({},ib,{marginBottom:20,fontSize:20,fontWeight:700,textAlign:"center"})}),
-e('button',{onClick:addR,style:{width:"100%",background:C.ac,color:"#fff",border:"none",borderRadius:10,padding:14,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"'Inter'"}},"Dodaj ocitanje")),
+e('input',{type:"number",placeholder:"npr. 12000",value:nr.k,onChange:function(x){upN({k:x.target.value})},style:Object.assign({},ib,{marginBottom:20,fontSize:20,fontWeight:700,textAlign:"center"})}),
+e('button',{onClick:addR,style:{width:"100%",background:nr.ko?C.sr:C.ac,color:"#fff",border:"none",borderRadius:10,padding:14,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"'Inter'"}},nr.ko?"Dodaj kontrolno ocitanje":"Dodaj ocitanje")),
 e('div',{style:{fontSize:14,fontWeight:700,marginBottom:10}},"Sva ocitanja ("+ent.length+")"),
-ent.map(function(en,i){return e('div',{key:en.id,style:{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:i===0?"#FFF9E6":C.cd,borderRadius:10,marginBottom:6,border:"1px solid "+(i===0?"#F0E68C":C.bo)}},e('div',{style:{flex:1}},e('div',{style:{fontWeight:700,fontSize:13}},en.d,i===0?" (pocetno)":""),e('div',{style:{fontSize:11,color:C.mu,marginTop:2}},e('span',{style:{color:C.vo}},"voda m3: "+en.v)," | ",e('span',{style:{color:C.sr}},"kWh: "+en.k))),i>0?e('button',{onClick:function(){delR(en.id)},style:{background:"none",border:"1px solid #fcc",color:"#e74c3c",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}},"Obrisi"):null)})):null,
+ent.map(function(en,i){var isK=!!en.ko;return e('div',{key:en.id,style:{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:isK?"#FFFBEA":(i===0?"#FFF9E6":C.cd),borderRadius:10,marginBottom:6,border:"1px solid "+(isK?C.srb:(i===0?"#F0E68C":C.bo)),borderLeft:isK?"4px solid "+C.srb:"1px solid "+(i===0?"#F0E68C":C.bo)}},e('div',{style:{flex:1}},e('div',{style:{fontWeight:700,fontSize:13,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}},en.d,isK?e('span',{style:{fontSize:9,fontWeight:800,letterSpacing:.5,background:C.srb,color:C.tx,padding:"2px 6px",borderRadius:4}},"KONTROLNO"):null,(!isK&&i===0)?e('span',{style:{fontSize:10,fontWeight:500,color:C.mu}},"(pocetno)"):null),e('div',{style:{fontSize:11,color:C.mu,marginTop:2}},isK?e('span',{style:{color:C.sr}},"kWh: "+en.k):[e('span',{key:"a",style:{color:C.vo}},"voda m3: "+en.v)," | ",e('span',{key:"b",style:{color:C.sr}},"kWh: "+en.k)])),(i>0||isK)?e('button',{onClick:function(){delR(en.id)},style:{background:"none",border:"1px solid #fcc",color:"#e74c3c",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}},"Obrisi"):null)})):null,
 vw==="grafovi"?e('div',null,e('div',{style:{fontSize:20,fontWeight:800,fontFamily:"'Archivo',serif",marginBottom:16}},"Grafovi"),bD.length?e('div',null,e('div',{style:{background:C.cd,borderRadius:12,padding:16,border:"1px solid "+C.bo,marginBottom:16}},e('div',{style:{fontSize:12,fontWeight:700,marginBottom:10}},"Struktura troskova"),e(SvgBar,{data:bD})),e('div',{style:{background:C.cd,borderRadius:12,padding:16,border:"1px solid "+C.bo}},e('div',{style:{fontSize:12,fontWeight:700,marginBottom:10}},"Trend ukupno"),e(SvgLine,{data:lD}))):e('div',{style:{textAlign:"center",padding:40,color:C.mu}},"Nema podataka")):null,
 vw==="cijene"?e('div',null,e('div',{style:{fontSize:20,fontWeight:800,fontFamily:"'Archivo',serif",marginBottom:4}},"Cijene i parametri"),
 e('div',{style:{fontSize:12,color:C.bl,fontWeight:600,marginBottom:16,display:"flex",alignItems:"center",gap:6}},e('span',{style:{display:"inline-block",width:14,height:14,borderRadius:4,background:C.bll,border:"1.5px solid "+C.blb}}),"Plava polja - mijenjaju se pri promjeni cijena"),
@@ -163,7 +196,7 @@ e('b',{style:{color:C.vo}},"Voda")," = m3 \u00D7 cijena + fiksna naknada",e('br'
 e('b',{style:{color:C.sr}},"Struja")," = [kWh \u00D7 (opskrba + distribucija + prijenos + OiE + solidarna \u2212 popust) + mj \u00D7 (OMM + naknada za opskrbu)] \u00D7 (1+PDV)",e('br'),
 e('b',null,"Ukupno")," = Voda + Struja + fiksni")),
 e('button',{onClick:rst,style:{width:"100%",background:"none",border:"1.5px solid #e74c3c",color:"#e74c3c",borderRadius:10,padding:12,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"'Inter'"}},"Vrati na pocetne podatke")):null),
-e('div',{style:{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:600,background:C.cd,borderTop:"1.5px solid "+C.bo,display:"flex",padding:"0 0 10px",zIndex:50,boxShadow:"0 -4px 16px rgba(20,33,61,.08)"}},nv.map(function(n){return e('button',{key:n.id,onClick:function(){if(n.id==="unos"&&vw!=="unos"){var now=new Date();var td=String(now.getDate());td=td.length<2?"0"+td:td;var tm=String(now.getMonth()+1);tm=tm.length<2?"0"+tm:tm;var ty=String(now.getFullYear());sN({v:nr.v,k:nr.k,dd:td,mm:tm,yy:ty})}sV(n.id)},style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"0 0 5px",background:"none",border:"none",borderTop:vw===n.id?"3px solid "+C.ha:"3px solid transparent",cursor:"pointer",color:vw===n.id?C.bl:C.mu,fontFamily:"'Inter'"}},e('span',{style:{fontSize:18,marginTop:5}},n.i),e('span',{style:{fontSize:10,fontWeight:vw===n.id?800:500}},n.l))})));}
+e('div',{style:{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:600,background:C.cd,borderTop:"1.5px solid "+C.bo,display:"flex",padding:"0 0 10px",zIndex:50,boxShadow:"0 -4px 16px rgba(20,33,61,.08)"}},nv.map(function(n){return e('button',{key:n.id,onClick:function(){if(n.id==="unos"&&vw!=="unos"){var now=new Date();var td=String(now.getDate());td=td.length<2?"0"+td:td;var tm=String(now.getMonth()+1);tm=tm.length<2?"0"+tm:tm;var ty=String(now.getFullYear());upN({dd:td,mm:tm,yy:ty})}sV(n.id)},style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"0 0 5px",background:"none",border:"none",borderTop:vw===n.id?"3px solid "+C.ha:"3px solid transparent",cursor:"pointer",color:vw===n.id?C.bl:C.mu,fontFamily:"'Inter'"}},e('span',{style:{fontSize:18,marginTop:5}},n.i),e('span',{style:{fontSize:10,fontWeight:vw===n.id?800:500}},n.l))})));}
 
 ReactDOM.createRoot(document.getElementById('root')).render(e(App));
 })();
