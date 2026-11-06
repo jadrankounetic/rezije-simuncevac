@@ -46,14 +46,15 @@ var b1=f2(mj*(cp.n_opsk||0)),b2=f2(mj*(cp.n_omm||0));
 var c1=f2(kw*(cp.c_oie||0)),d1=f2(kw*(cp.c_sol||0)),d2=f2(kw*(cp.c_solp||0));
 var os=f2(a1+a2+a3+b1+b2+c1+d1-d2);
 return f2(os+f2(os*(cp.pdv_s||0)));}
-function kontrole(all,p){var r=[],last=null;
+function kontrole(all,p){var r=[],prev=null;
 for(var i=0;i<all.length;i++){var x=all[i];
-if(!x.ko){last=x;continue}
-if(!last){r.push({id:x.id,date:x.d,st:x.k,od:null,kw:0,dn:0,dan:0,proc:null});continue}
-var cp=x.p||p;var kw=Math.round(x.k-last.k);var dn=dana(last.d,x.d);
+if(!x.ko){prev=x;continue}
+if(!prev){r.push({id:x.id,date:x.d,st:x.k,od:null,kw:0,dn:0,dan:0,proc:null});prev=x;continue}
+var cp=x.p||p;var kw=Math.round(x.k-prev.k);var dn=dana(prev.d,x.d);
 var mj=dn>0?Math.round(dn/30*100)/100:0;
 var proc=(cp.c_opsk!==undefined&&cp.c_opsk!==null)?strujaHEP(kw,mj,cp):null;
-r.push({id:x.id,date:x.d,st:x.k,od:last.d,kw:kw,dn:dn,dan:dn>0?kw/dn:0,proc:proc});}
+r.push({id:x.id,date:x.d,st:x.k,od:prev.d,kw:kw,dn:dn,dan:dn>0?kw/dn:0,proc:proc});
+prev=x;}
 return r;}
 function calc(all,p){var ent=[],q;for(q=0;q<all.length;q++){if(!all[q].ko)ent.push(all[q])}
 var r=[];for(var i=1;i<ent.length;i++){var pv=ent[i-1],cu=ent[i];var cp=cu.p||p;
@@ -101,6 +102,7 @@ var ent=data?(data.entries||[]):[];
 var par=mergeP(data?data.params:null);
 var res=um(function(){return calc(ent,par)},[ent,par]);
 var kon=um(function(){return kontrole(ent,par)},[ent,par]);
+var kt=um(function(){var a={kw:0,dn:0,proc:0};for(var i=0;i<kon.length;i++){if(!kon[i].od)continue;a.kw+=kon[i].kw;a.dn+=kon[i].dn;a.proc+=(kon[i].proc||0)}return a},[kon]);
 var st=um(function(){if(!res.length)return{};var t=0,v=0,s=0;for(var i=0;i<res.length;i++){t+=res[i].uk;v+=res[i].vt;s+=res[i].st}return{total:t,avg:t/res.length,voda:v,struja:s}},[res]);
 
 if(ld||!data)return e('div',{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",gap:12}},e('div',{style:{width:28,height:28,border:"3px solid #DDD8CF",borderTopColor:"#1B5BD6",borderRadius:"50%",animation:"sp .7s linear infinite"}}),e('div',{style:{fontSize:13,color:"#7F8C8D"}},"Spajanje..."));
@@ -129,7 +131,7 @@ vw==="tablica"?e('div',null,e('div',{style:{display:"flex",gap:8,flexWrap:"wrap"
 kon.length?e('div',{style:{marginTop:20}},
 e('div',{style:{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}},e('div',{style:{fontSize:14,fontWeight:800,fontFamily:"'Archivo',sans-serif"}},"Kontrolna ocitanja struje"),e('span',{style:{fontSize:9,fontWeight:800,letterSpacing:.5,background:C.srb,color:C.tx,padding:"3px 7px",borderRadius:4}},"INFORMATIVNO")),
 e('div',{style:{overflowX:"auto",borderRadius:10,border:"1.5px solid "+C.bo,background:C.cd}},e('table',{style:{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:600}},
-e('thead',null,e('tr',null,["Datum","Stanje kWh","Od obracuna","Potroseno kWh","Dana","kWh/dan","Procjena EUR",""].map(function(h,i){return e('th',{key:i,style:{padding:"9px 6px",textAlign:i===0?"left":"right",fontWeight:800,color:C.tx,background:C.srb,fontSize:9,textTransform:"uppercase",letterSpacing:.5,border:"1px solid #DBAE00",whiteSpace:"nowrap"}},h)}))),
+e('thead',null,e('tr',null,["Datum","Stanje kWh","Od prethodnog","Potroseno kWh","Dana","kWh/dan","Procjena EUR",""].map(function(h,i){return e('th',{key:i,style:{padding:"9px 6px",textAlign:i===0?"left":"right",fontWeight:800,color:C.tx,background:C.srb,fontSize:9,textTransform:"uppercase",letterSpacing:.5,border:"1px solid #DBAE00",whiteSpace:"nowrap"}},h)}))),
 e('tbody',null,kon.map(function(r,i){var bg=i%2===0?"#fff":"#FFFBEA";var td={padding:"8px 6px",textAlign:"right",border:"1px solid "+C.bo};return e('tr',{key:r.id,style:{background:bg}},
 e('td',{style:{padding:"8px 6px",fontWeight:600,whiteSpace:"nowrap",border:"1px solid "+C.bo}},r.date),
 e('td',{style:Object.assign({},td,{color:C.mu,background:i%2===0?"#FAFBFE":"#F6F1DC"})},r.st),
@@ -138,8 +140,8 @@ e('td',{style:Object.assign({},td,{color:C.sr,fontWeight:700})},r.od?r.kw:"—")
 e('td',{style:td},r.od?r.dn:"—"),
 e('td',{style:Object.assign({},td,{color:C.bl,fontWeight:700})},r.od&&r.dn>0?f2(r.dan):"—"),
 e('td',{style:Object.assign({},td,{fontWeight:800})},r.od&&r.proc!==null?f2(r.proc):"—"),
-e('td',{style:{padding:4,textAlign:"center",border:"1px solid "+C.bo}},e('button',{onClick:function(){delR(r.id)},style:{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14}},"×")))})))),
-e('div',{style:{fontSize:10,color:C.mu,marginTop:7,lineHeight:1.5}},"Procjena je informativni trosak struje od zadnjeg obracunskog ocitanja do kontrolnog, po cijenama vazecim u trenutku unosa. Kontrolna ocitanja ne ulaze u tablicu iznad, grafove ni ukupne iznose.")):null):null,
+e('td',{style:{padding:4,textAlign:"center",border:"1px solid "+C.bo}},e('button',{onClick:function(){delR(r.id)},style:{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14}},"×")))})),function(){var tc={padding:"9px 6px",textAlign:"right",fontWeight:800,background:"#FFF4C2",border:"1px solid #DBAE00"};return e('tfoot',null,e('tr',null,e('td',{style:Object.assign({},tc,{textAlign:"left"})},"UKUPNO"),e('td',{style:tc}),e('td',{style:tc}),e('td',{style:Object.assign({},tc,{color:C.sr})},kt.kw),e('td',{style:tc},kt.dn),e('td',{style:Object.assign({},tc,{color:C.bl})},kt.dn>0?f2(kt.kw/kt.dn):"\u2014"),e('td',{style:tc},f2(kt.proc)),e('td',{style:tc})))}())),
+e('div',{style:{fontSize:10,color:C.mu,marginTop:7,lineHeight:1.5}},"Svaki redak pokazuje potrosnju od prethodnog ocitanja (obracunskog ili kontrolnog), pa se iznosi zbrajaju u ukupno. Procjena je informativna, po cijenama vazecim u trenutku unosa; kontrolna ocitanja ne ulaze u tablicu iznad, grafove ni ukupne iznose.")):null):null,
 vw==="unos"?e('div',null,e('div',{style:{fontSize:20,fontWeight:800,fontFamily:"'Archivo',serif",marginBottom:16}},"Novo ocitanje"),e('div',{style:{background:C.cd,borderRadius:12,padding:20,boxShadow:"0 1px 4px rgba(0,0,0,.06)",marginBottom:16}},
 e('div',{style:{marginBottom:14}},
 e('div',{style:{display:"flex",border:"1.5px solid "+C.bo,borderRadius:8,overflow:"hidden"}},
